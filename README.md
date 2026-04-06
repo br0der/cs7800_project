@@ -8,6 +8,7 @@ This project provides a basic differential testing suite for dynamic bitvector i
 - A reference oracle model (`ReferenceBitVector`) with simple, trusted behavior.
 - A baseline implementation (`NaiveDynamicBitVector`) to validate the harness.
 - Deterministic tests and randomized operation-sequence tests.
+- Speed-only performance benchmarking (`run_performance_suite`) with per-operation timing.
 
 ### Tuning query pressure
 
@@ -50,6 +51,45 @@ Or run directly:
 ```bash
 ./build/bitvector_tests
 ```
+
+The executable now runs correctness tests first, then a speed-only benchmark.
+
+You can also run specific implementations/tests via CLI flags:
+
+```bash
+./build/bitvector_tests --help
+./build/bitvector_tests --impl naive --test correctness
+./build/bitvector_tests --impl static --test performance --perf-ops 500000 --perf-rounds 5
+./build/bitvector_tests --impl all --test both --rounds 10 --ops-per-round 20000 --q 8
+```
+
+Supported flags:
+
+- `--impl naive|static|all`
+- `--test correctness|performance|both`
+- `--rounds N`
+- `--ops-per-round N`
+- `--q N`
+- `--seed N`
+- `--perf-rounds N`
+- `--perf-ops N`
+- `--initial-size N`
+- `--perf-q N`
+- `--perf-seed N`
+- `--quiet`
+
+## Performance testing (speed only)
+
+Use `dbv::PerfConfig` in [tests/main.cpp](tests/main.cpp) to tune benchmark workload:
+
+- `rounds`: number of independent benchmark rounds
+- `initial_size`: initial bitvector size before timing starts
+- `operations`: operations per round
+- `q`: query/update ratio for dynamic bitvectors
+
+Benchmark output reports per-op count, average nanoseconds per op, and throughput in Mops/s.
+
+Important: this benchmark intentionally ignores correctness and only measures operation speed.
 
 ## Adapting a paper implementation
 
