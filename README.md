@@ -59,24 +59,16 @@ You can also run specific implementations/tests via CLI flags:
 ```bash
 ./build/bitvector_tests --help
 ./build/bitvector_tests --impl naive --test correctness
-./build/bitvector_tests --impl static --test performance --perf-ops 500000 --perf-rounds 5
-./build/bitvector_tests --impl all --test both --rounds 10 --ops-per-round 20000 --q 8
+./build/bitvector_tests --impl static --test performance
+./build/bitvector_tests --impl all --test both
 ```
 
 Supported flags:
 
 - `--impl naive|static|all`
 - `--test correctness|performance|both`
-- `--rounds N`
-- `--ops-per-round N`
-- `--q N`
-- `--seed N`
-- `--perf-rounds N`
-- `--perf-ops N`
-- `--initial-size N`
-- `--perf-q N`
-- `--perf-seed N`
-- `--quiet`
+
+All workload parameters are fixed in [tests/main.cpp](tests/main.cpp).
 
 ## Performance testing (speed only)
 
