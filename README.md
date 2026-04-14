@@ -59,13 +59,14 @@ You can also run specific implementations/tests via CLI flags:
 ```bash
 ./build/bitvector_tests --help
 ./build/bitvector_tests --impl naive --test correctness
+./build/bitvector_tests --impl btree --test correctness
 ./build/bitvector_tests --impl static --test performance
 ./build/bitvector_tests --impl all --test both
 ```
 
 Supported flags:
 
-- `--impl naive|static|all`
+- `--impl naive|static|btree|navarro-static|navarro|all`
 - `--test correctness|performance|both`
 
 All workload parameters are fixed in [tests/main.cpp](tests/main.cpp).

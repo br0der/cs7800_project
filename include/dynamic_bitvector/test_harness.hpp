@@ -49,6 +49,25 @@ inline void check(bool ok, const string& msg) {
 }
 
 template <typename BV>
+void assert_same_state(const BV& bv, const ReferenceBitVector& oracle, const string& context) {
+    check(bv.size() == oracle.size(), context + " | size mismatch");
+
+    const size_t n = oracle.size();
+    for (size_t i = 0; i < n; ++i) {
+        check(bv.access(i) == oracle.access(i), context + " | access mismatch");
+    }
+
+    for (size_t i = 0; i <= n; ++i) {
+        check(bv.rank1(i) == oracle.rank1(i), context + " | rank mismatch");
+    }
+
+    const size_t ones = oracle.rank1(n);
+    for (size_t k = 0; k < ones + 3; ++k) {
+        check(bv.select1(k) == oracle.select1(k), context + " | select mismatch");
+    }
+}
+
+template <typename BV>
 void run_suite(const string& impl_name, const TestConfig& cfg = {}) {
     static_assert(is_query_bitvector_v<BV>, "BV must support size/access/rank1/select1");
 

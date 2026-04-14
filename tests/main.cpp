@@ -1,4 +1,5 @@
 #include "Navarro25/adaptive_dynamic_bitvector.hpp"
+#include "btree_dynamic_bitvector/basic_btree_dynamic_bitvector.hpp"
 #include "dynamic_bitvector/naive_dynamic_bitvector.hpp"
 #include "dynamic_bitvector/static_bitvector.hpp"
 #include "dynamic_bitvector/test_harness.hpp"
@@ -287,9 +288,95 @@ void navarro25_static_heavy_adaptive_regression() {
     dbv::check(bv.check_invariants(), "Navarro25 invariant failure in static-heavy randomized final");
 }
 
+void btree_dynamic_bitvector_regression() {
+    using TestBV = BTreeDBV::BasicDynamicBitVector<8, 256>;
+
+    TestBV bv;
+    dbv::ReferenceBitVector oracle;
+    mt19937_64 rng(0xB7AEE245ULL);
+    bernoulli_distribution bit_dist(0.5);
+
+    for (size_t i = 0; i < 1024; ++i) {
+        uniform_int_distribution<size_t> pos_dist(0, oracle.size());
+        const size_t pos = pos_dist(rng);
+        const bool bit = bit_dist(rng);
+        bv.insert(pos, bit);
+        oracle.insert(pos, bit);
+
+        if ((i % 97) == 0) {
+            dbv::assert_same_state(bv, oracle, "BTreeDBV split-build checkpoint");
+            dbv::check(bv.check_invariants(), "BTreeDBV invariant failure during split-build checkpoint");
+        }
+    }
+
+    dbv::assert_same_state(bv, oracle, "BTreeDBV after split-heavy build");
+    dbv::check(bv.check_invariants(), "BTreeDBV invariant failure after split-heavy build");
+
+    for (size_t op = 0; op < 3000; ++op) {
+        const size_t n = oracle.size();
+        const bool do_insert = (n == 0) || bernoulli_distribution(0.35)(rng);
+
+        if (do_insert) {
+            uniform_int_distribution<size_t> pos_dist(0, n);
+            const size_t pos = pos_dist(rng);
+            const bool bit = bit_dist(rng);
+            bv.insert(pos, bit);
+            oracle.insert(pos, bit);
+        } else {
+            switch (uniform_int_distribution<int>(0, 2)(rng)) {
+                case 0: {
+                    uniform_int_distribution<size_t> pos_dist(0, n - 1);
+                    const size_t pos = pos_dist(rng);
+                    bv.erase(pos);
+                    oracle.erase(pos);
+                    break;
+                }
+                case 1: {
+                    uniform_int_distribution<size_t> pos_dist(0, n - 1);
+                    const size_t pos = pos_dist(rng);
+                    const bool bit = bit_dist(rng);
+                    bv.set(pos, bit);
+                    oracle.set(pos, bit);
+                    break;
+                }
+                default: {
+                    uniform_int_distribution<size_t> pos_dist(0, n - 1);
+                    const size_t pos = pos_dist(rng);
+                    bv.flip(pos);
+                    oracle.flip(pos);
+                    break;
+                }
+            }
+        }
+
+        if ((op % 64) == 0) {
+            dbv::assert_same_state(bv, oracle, "BTreeDBV mixed checkpoint");
+            dbv::check(bv.check_invariants(), "BTreeDBV invariant failure during mixed checkpoint");
+        }
+    }
+
+    while (oracle.size() > 48) {
+        uniform_int_distribution<size_t> pos_dist(0, oracle.size() - 1);
+        const size_t pos = pos_dist(rng);
+        bv.erase(pos);
+        oracle.erase(pos);
+
+        if ((oracle.size() % 53) == 0) {
+            dbv::assert_same_state(bv, oracle, "BTreeDBV merge checkpoint");
+            dbv::check(bv.check_invariants(), "BTreeDBV invariant failure during merge checkpoint");
+        }
+    }
+
+    dbv::assert_same_state(bv, oracle, "BTreeDBV final regression");
+    dbv::check(bv.check_invariants(), "BTreeDBV invariant failure in final regression");
+}
+
 } // namespace
 
 namespace dbv {
+
+template <>
+struct is_dynamic_bitvector<RankSelectBitVector, void> : false_type {};
 
 // Loader hook for query-only static bitvector.
 inline void load_from_bits(RankSelectBitVector& bv, const vector<bool>& bits) {
@@ -314,7 +401,7 @@ inline void load_from_bits(StaticBitVector& bv, const vector<bool>& bits) {
 namespace {
 
 struct CliOptions {
-    string impl = "all";       // naive | static | navarro-static | navarro | all
+    string impl = "all";       // naive | static | btree | navarro-static | navarro | all
     string test = "both";      // correctness | performance | both
 };
 
@@ -323,7 +410,7 @@ void print_help(const char* prog) {
         << "Usage: " << prog << " [options]\n"
         << "\n"
         << "Implementation selection:\n"
-        << "  --impl naive|static|navarro-static|navarro|all\n"
+        << "  --impl naive|static|btree|navarro-static|navarro|all\n"
         << "                                  Choose implementation(s) to run (default: all)\n"
         << "\n"
         << "Test selection:\n"
@@ -355,9 +442,9 @@ CliOptions parse_args(int argc, char** argv) {
         }
     }
 
-    if (!(opt.impl == "naive" || opt.impl == "static" || opt.impl == "navarro-static" ||
+    if (!(opt.impl == "naive" || opt.impl == "static" || opt.impl == "btree" || opt.impl == "navarro-static" ||
           opt.impl == "navarro" || opt.impl == "all")) {
-        throw invalid_argument("--impl must be one of: naive, static, navarro-static, navarro, all");
+        throw invalid_argument("--impl must be one of: naive, static, btree, navarro-static, navarro, all");
     }
     if (!(opt.test == "correctness" || opt.test == "performance" || opt.test == "both")) {
         throw invalid_argument("--test must be one of: correctness, performance, both");
@@ -373,6 +460,8 @@ void run_extra_correctness_checks() {
     } else if constexpr (is_same_v<BV, Navarro25::AdaptiveDynamicBitVector>) {
         navarro25_adaptive_regression();
         navarro25_static_heavy_adaptive_regression();
+    } else if constexpr (is_same_v<BV, BTreeDBV::DynamicBitVector>) {
+        btree_dynamic_bitvector_regression();
     }
 }
 
@@ -397,15 +486,17 @@ void run_selected(const string& name, const CliOptions& opt) {
 } // namespace
 
 int main(int argc, char** argv) {
-    CliOptions opt;
-
-    opt = parse_args(argc, argv);
+    try {
+        const CliOptions opt = parse_args(argc, argv);
 
         if (opt.impl == "naive" || opt.impl == "all") {
             run_selected<dbv::NaiveDynamicBitVector>("NaiveDynamicBitVector", opt);
         }
         if (opt.impl == "static" || opt.impl == "all") {
             run_selected<dbv::RankSelectBitVector>("RankSelectBitVector", opt);
+        }
+        if (opt.impl == "btree" || opt.impl == "all") {
+            run_selected<BTreeDBV::DynamicBitVector>("BTreeDBV::DynamicBitVector", opt);
         }
         if (opt.impl == "navarro-static" || opt.impl == "navarro" || opt.impl == "all") {
             run_selected<Navarro25::StaticBitVector>("Navarro25::StaticBitVector", opt);
@@ -420,9 +511,4 @@ int main(int argc, char** argv) {
         cerr << "Use --help for usage.\n";
         return 1;
     }
-    if (opt.impl == "static" || opt.impl == "all") {
-        run_selected<dbv::RankSelectBitVector>("RankSelectBitVector", opt);
-    }
-
-    return 0;
 }
