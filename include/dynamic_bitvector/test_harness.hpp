@@ -29,8 +29,9 @@ struct TestConfig {
 struct PerfConfig {
     size_t rounds = 3;
     size_t initial_size = 1 << 23;
-    size_t operations = 10000000;
+    size_t operations = 100000;
     uint64_t seed = 0x9E3779B97F4A7C15ULL;
+    bool skip_insert_erase = false;
 };
 
 template <typename BV>
@@ -243,13 +244,15 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
             if constexpr (is_dynamic_bitvector_v<BV>) {
                 const bool do_query = bernoulli_distribution(0.8)(rng);
                 if (!do_query) {
-                    if (n == 0) {
+                    if (n == 0 && !cfg.skip_insert_erase) {
                         const auto a = clock_t::now();
                         bv.insert(0, false);
                         const auto b = clock_t::now();
                         record(OP_INSERT, a, b);
-                    } else {
-                        const int upd = uniform_int_distribution<int>(0, 3)(rng);
+                    } else if (n != 0) {
+                        const int upd = cfg.skip_insert_erase
+                            ? uniform_int_distribution<int>(2, 3)(rng)
+                            : uniform_int_distribution<int>(0, 3)(rng);
                         if (upd == 0) {
                             const size_t pos = uniform_int_distribution<size_t>(0, n)(rng);
                             const bool bit = bernoulli_distribution(0.5)(rng);
@@ -277,6 +280,11 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
                             const auto b = clock_t::now();
                             record(OP_FLIP, a, b);
                         }
+                    } else {
+                        const auto a = clock_t::now();
+                        sink ^= bv.rank1(0);
+                        const auto b = clock_t::now();
+                        record(OP_RANK, a, b);
                     }
                 } else {
                     if (n == 0) {
@@ -355,6 +363,11 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
         : 0.0;
 
     cout << "[perf] " << impl_name << " per-op:\n";
+    if constexpr (is_dynamic_bitvector_v<BV>) {
+        if (cfg.skip_insert_erase) {
+            cout << "  - note: insert/erase timing skipped\n";
+        }
+    }
     for (size_t op = 0; op < OP_COUNT; ++op) {
         if (op_counts[op] == 0) {
             continue; // static/query-only naturally omits modifications

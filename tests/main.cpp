@@ -1,6 +1,7 @@
 #include "Navarro25/adaptive_dynamic_bitvector.hpp"
 #include "btree_dynamic_bitvector/basic_btree_dynamic_bitvector.hpp"
 #include "dynamic_bitvector/naive_dynamic_bitvector.hpp"
+#include "dynamic_bitvector/pbds_dynamic_bitvector.hpp"
 #include "dynamic_bitvector/static_bitvector.hpp"
 #include "dynamic_bitvector/test_harness.hpp"
 
@@ -12,13 +13,6 @@
 #include <type_traits>
 
 using namespace std;
-
-namespace dbv {
-
-template <>
-struct is_dynamic_bitvector<RankSelectBitVector, void> : false_type {};
-
-} // namespace dbv
 
 namespace {
 
@@ -378,6 +372,74 @@ void btree_dynamic_bitvector_regression() {
     dbv::check(bv.check_invariants(), "BTreeDBV invariant failure in final regression");
 }
 
+#if DBV_HAS_PBDS
+void pbds_dynamic_bitvector_regression() {
+    dbv::PbdsDynamicBitVector bv;
+    dbv::ReferenceBitVector oracle;
+    mt19937_64 rng(0x50D5C63AULL);
+    bernoulli_distribution bit_dist(0.5);
+
+    for (size_t i = 0; i < 768; ++i) {
+        uniform_int_distribution<size_t> pos_dist(0, oracle.size());
+        const size_t pos = pos_dist(rng);
+        const bool bit = bit_dist(rng);
+        bv.insert(pos, bit);
+        oracle.insert(pos, bit);
+
+        if ((i % 41) == 0) {
+            dbv::assert_same_state(bv, oracle, "PBDS build checkpoint");
+            dbv::check(bv.check_invariants(), "PBDS invariant failure during build checkpoint");
+        }
+    }
+
+    for (size_t op = 0; op < 2500; ++op) {
+        const size_t n = oracle.size();
+        const bool do_insert = (n == 0) || bernoulli_distribution(0.30)(rng);
+
+        if (do_insert) {
+            uniform_int_distribution<size_t> pos_dist(0, n);
+            const size_t pos = pos_dist(rng);
+            const bool bit = bit_dist(rng);
+            bv.insert(pos, bit);
+            oracle.insert(pos, bit);
+        } else {
+            switch (uniform_int_distribution<int>(0, 2)(rng)) {
+                case 0: {
+                    uniform_int_distribution<size_t> pos_dist(0, n - 1);
+                    const size_t pos = pos_dist(rng);
+                    bv.erase(pos);
+                    oracle.erase(pos);
+                    break;
+                }
+                case 1: {
+                    uniform_int_distribution<size_t> pos_dist(0, n - 1);
+                    const size_t pos = pos_dist(rng);
+                    const bool bit = bit_dist(rng);
+                    bv.set(pos, bit);
+                    oracle.set(pos, bit);
+                    break;
+                }
+                default: {
+                    uniform_int_distribution<size_t> pos_dist(0, n - 1);
+                    const size_t pos = pos_dist(rng);
+                    bv.flip(pos);
+                    oracle.flip(pos);
+                    break;
+                }
+            }
+        }
+
+        if ((op % 64) == 0) {
+            dbv::assert_same_state(bv, oracle, "PBDS mixed checkpoint");
+            dbv::check(bv.check_invariants(), "PBDS invariant failure during mixed checkpoint");
+        }
+    }
+
+    dbv::assert_same_state(bv, oracle, "PBDS final regression");
+    dbv::check(bv.check_invariants(), "PBDS invariant failure in final regression");
+}
+#endif
+
 } // namespace
 
 namespace dbv {
@@ -408,8 +470,9 @@ inline void load_from_bits(StaticBitVector& bv, const vector<bool>& bits) {
 namespace {
 
 struct CliOptions {
-    string impl = "all";       // naive | static | btree | navarro-static | navarro | all
+    string impl = "all";       // naive | static | btree | pbds | navarro-static | navarro | all
     string test = "both";      // correctness | performance | both
+    bool skip_insert_erase_perf = false;
 };
 
 void print_help(const char* prog) {
@@ -417,11 +480,12 @@ void print_help(const char* prog) {
         << "Usage: " << prog << " [options]\n"
         << "\n"
         << "Implementation selection:\n"
-        << "  --impl naive|static|btree|navarro-static|navarro|all\n"
+        << "  --impl naive|static|btree|pbds|navarro-static|navarro|all\n"
         << "                                  Choose implementation(s) to run (default: all)\n"
         << "\n"
         << "Test selection:\n"
         << "  --test correctness|performance|both   Choose test type(s) (default: both)\n"
+        << "  --skip-insert-erase-perf              Skip insert/erase timing in performance tests\n"
         << "\n"
         << "  -h, --help                      Show this help\n";
 }
@@ -446,12 +510,14 @@ CliOptions parse_args(int argc, char** argv) {
             opt.impl = need_value(arg);
         } else if (arg == "--test") {
             opt.test = need_value(arg);
+        } else if (arg == "--skip-insert-erase-perf") {
+            opt.skip_insert_erase_perf = true;
         }
     }
 
-    if (!(opt.impl == "naive" || opt.impl == "static" || opt.impl == "btree" || opt.impl == "navarro-static" ||
-          opt.impl == "navarro" || opt.impl == "all")) {
-        throw invalid_argument("--impl must be one of: naive, static, btree, navarro-static, navarro, all");
+    if (!(opt.impl == "naive" || opt.impl == "static" || opt.impl == "btree" || opt.impl == "pbds" ||
+          opt.impl == "navarro-static" || opt.impl == "navarro" || opt.impl == "all")) {
+        throw invalid_argument("--impl must be one of: naive, static, btree, pbds, navarro-static, navarro, all");
     }
     if (!(opt.test == "correctness" || opt.test == "performance" || opt.test == "both")) {
         throw invalid_argument("--test must be one of: correctness, performance, both");
@@ -469,6 +535,10 @@ void run_extra_correctness_checks() {
         navarro25_static_heavy_adaptive_regression();
     } else if constexpr (is_same_v<BV, BTreeDBV::DynamicBitVector>) {
         btree_dynamic_bitvector_regression();
+#if DBV_HAS_PBDS
+    } else if constexpr (is_same_v<BV, dbv::PbdsDynamicBitVector>) {
+        pbds_dynamic_bitvector_regression();
+#endif
     }
 }
 
@@ -477,6 +547,7 @@ void run_selected(const string& name, const CliOptions& opt) {
     dbv::TestConfig cfg;
 
     dbv::PerfConfig perf_cfg;
+    perf_cfg.skip_insert_erase = opt.skip_insert_erase_perf;
 
     const bool run_correctness = (opt.test == "correctness" || opt.test == "both");
     const bool run_performance = (opt.test == "performance" || opt.test == "both");
@@ -505,6 +576,15 @@ int main(int argc, char** argv) {
         if (opt.impl == "btree" || opt.impl == "all") {
             run_selected<BTreeDBV::DynamicBitVector>("BTreeDBV::DynamicBitVector", opt);
         }
+#if DBV_HAS_PBDS
+        if (opt.impl == "pbds" || opt.impl == "all") {
+            run_selected<dbv::PbdsDynamicBitVector>("dbv::PbdsDynamicBitVector", opt);
+        }
+#else
+        if (opt.impl == "pbds") {
+            throw invalid_argument("PBDS implementation requires GNU PBDS headers; build with libstdc++/g++");
+        }
+#endif
         if (opt.impl == "navarro-static" || opt.impl == "navarro" || opt.impl == "all") {
             run_selected<Navarro25::StaticBitVector>("Navarro25::StaticBitVector", opt);
         }
