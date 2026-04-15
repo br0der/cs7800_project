@@ -13,6 +13,13 @@
 
 using namespace std;
 
+namespace dbv {
+
+template <>
+struct is_dynamic_bitvector<RankSelectBitVector, void> : false_type {};
+
+} // namespace dbv
+
 namespace {
 
 void navarro25_check_static_bits(const vector<unsigned char>& bits, const string& context) {
@@ -489,9 +496,9 @@ int main(int argc, char** argv) {
     try {
         const CliOptions opt = parse_args(argc, argv);
 
-        if (opt.impl == "naive" || opt.impl == "all") {
-            run_selected<dbv::NaiveDynamicBitVector>("NaiveDynamicBitVector", opt);
-        }
+        // if (opt.impl == "naive" || opt.impl == "all") {
+        //     run_selected<dbv::NaiveDynamicBitVector>("NaiveDynamicBitVector", opt);
+        // }
         if (opt.impl == "static" || opt.impl == "all") {
             run_selected<dbv::RankSelectBitVector>("RankSelectBitVector", opt);
         }

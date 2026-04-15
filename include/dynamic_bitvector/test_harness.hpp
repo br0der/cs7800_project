@@ -9,8 +9,10 @@
 #include <cstdint>
 #include <iostream>
 #include <random>
+#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 using namespace std;
@@ -26,19 +28,23 @@ struct TestConfig {
 
 struct PerfConfig {
     size_t rounds = 3;
-    size_t initial_size = 1 << 14;
-    size_t operations = 100000;
+    size_t initial_size = 1 << 23;
+    size_t operations = 10000000;
     uint64_t seed = 0x9E3779B97F4A7C15ULL;
 };
 
 template <typename BV>
 void load_from_bits(BV& bv, const vector<bool>& bits) {
-    static_assert(is_dynamic_bitvector_v<BV>,
-                  "For query-only bitvectors, provide dbv::load_from_bits(BV&, const vector<bool>&)");
+    if constexpr (is_constructible_v<BV, const vector<bool>&>) {
+        bv = BV(bits);
+    } else {
+        static_assert(is_dynamic_bitvector_v<BV>,
+                      "For query-only bitvectors, provide dbv::load_from_bits(BV&, const vector<bool>&)");
 
-    bv.clear();
-    for (bool b : bits) {
-        bv.insert(bv.size(), b);
+        bv.clear();
+        for (bool b : bits) {
+            bv.insert(bv.size(), b);
+        }
     }
 }
 
