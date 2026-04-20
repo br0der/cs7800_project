@@ -24,13 +24,15 @@ struct TestConfig {
     size_t rounds = 3;
     size_t operations_per_round = 2000;
     uint64_t seed = 0xC57800ULL;
+    double query_ratio = 0.5;
 };
 
 struct PerfConfig {
     size_t rounds = 3;
-    size_t initial_size = 1 << 23;
-    size_t operations = 100000;
+    size_t initial_size = 1 << 20;
+    size_t operations = 10000;
     uint64_t seed = 0x9E3779B97F4A7C15ULL;
+    double query_ratio = 0.5;
     bool skip_insert_erase = false;
 };
 
@@ -115,7 +117,7 @@ void run_suite(const string& impl_name, const TestConfig& cfg = {}) {
 
             for (size_t op = 0; op < cfg.operations_per_round; ++op) {
                 const size_t n = oracle.size();
-                const bool do_query = bernoulli_distribution(0.8)(rng);
+                const bool do_query = bernoulli_distribution(cfg.query_ratio)(rng);
 
                 if (!do_query) {
                     if (n == 0) {
@@ -242,7 +244,7 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
             const size_t n = bv.size();
 
             if constexpr (is_dynamic_bitvector_v<BV>) {
-                const bool do_query = bernoulli_distribution(0.8)(rng);
+                const bool do_query = bernoulli_distribution(cfg.query_ratio)(rng);
                 if (!do_query) {
                     if (n == 0 && !cfg.skip_insert_erase) {
                         const auto a = clock_t::now();

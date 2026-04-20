@@ -472,6 +472,7 @@ namespace {
 struct CliOptions {
     string impl = "all";       // naive | static | btree | pbds | navarro-static | navarro | all
     string test = "both";      // correctness | performance | both
+    double query_ratio = 0.8;
     bool skip_insert_erase_perf = false;
 };
 
@@ -485,6 +486,7 @@ void print_help(const char* prog) {
         << "\n"
         << "Test selection:\n"
         << "  --test correctness|performance|both   Choose test type(s) (default: both)\n"
+        << "  --query-ratio <0..1>                  Fraction of dynamic operations that are queries\n"
         << "  --skip-insert-erase-perf              Skip insert/erase timing in performance tests\n"
         << "\n"
         << "  -h, --help                      Show this help\n";
@@ -510,6 +512,8 @@ CliOptions parse_args(int argc, char** argv) {
             opt.impl = need_value(arg);
         } else if (arg == "--test") {
             opt.test = need_value(arg);
+        } else if (arg == "--query-ratio") {
+            opt.query_ratio = stod(need_value(arg));
         } else if (arg == "--skip-insert-erase-perf") {
             opt.skip_insert_erase_perf = true;
         }
@@ -521,6 +525,9 @@ CliOptions parse_args(int argc, char** argv) {
     }
     if (!(opt.test == "correctness" || opt.test == "performance" || opt.test == "both")) {
         throw invalid_argument("--test must be one of: correctness, performance, both");
+    }
+    if (!(opt.query_ratio >= 0.0 && opt.query_ratio <= 1.0)) {
+        throw invalid_argument("--query-ratio must be in [0, 1]");
     }
 
     return opt;
@@ -545,8 +552,10 @@ void run_extra_correctness_checks() {
 template <typename BV>
 void run_selected(const string& name, const CliOptions& opt) {
     dbv::TestConfig cfg;
+    cfg.query_ratio = opt.query_ratio;
 
     dbv::PerfConfig perf_cfg;
+    perf_cfg.query_ratio = opt.query_ratio;
     perf_cfg.skip_insert_erase = opt.skip_insert_erase_perf;
 
     const bool run_correctness = (opt.test == "correctness" || opt.test == "both");
@@ -570,24 +579,24 @@ int main(int argc, char** argv) {
         // if (opt.impl == "naive" || opt.impl == "all") {
         //     run_selected<dbv::NaiveDynamicBitVector>("NaiveDynamicBitVector", opt);
         // }
-        if (opt.impl == "static" || opt.impl == "all") {
-            run_selected<dbv::RankSelectBitVector>("RankSelectBitVector", opt);
-        }
+        // if (opt.impl == "static" || opt.impl == "all") {
+        //     run_selected<dbv::RankSelectBitVector>("RankSelectBitVector", opt);
+        // }
         if (opt.impl == "btree" || opt.impl == "all") {
             run_selected<BTreeDBV::DynamicBitVector>("BTreeDBV::DynamicBitVector", opt);
         }
 #if DBV_HAS_PBDS
-        if (opt.impl == "pbds" || opt.impl == "all") {
-            run_selected<dbv::PbdsDynamicBitVector>("dbv::PbdsDynamicBitVector", opt);
-        }
+        // if (opt.impl == "pbds" || opt.impl == "all") {
+        //     run_selected<dbv::PbdsDynamicBitVector>("dbv::PbdsDynamicBitVector", opt);
+        // }
 #else
-        if (opt.impl == "pbds") {
-            throw invalid_argument("PBDS implementation requires GNU PBDS headers; build with libstdc++/g++");
-        }
+        // if (opt.impl == "pbds") {
+        //     throw invalid_argument("PBDS implementation requires GNU PBDS headers; build with libstdc++/g++");
+        // }
 #endif
-        if (opt.impl == "navarro-static" || opt.impl == "navarro" || opt.impl == "all") {
-            run_selected<Navarro25::StaticBitVector>("Navarro25::StaticBitVector", opt);
-        }
+        // if (opt.impl == "navarro-static" || opt.impl == "navarro" || opt.impl == "all") {
+        //     run_selected<Navarro25::StaticBitVector>("Navarro25::StaticBitVector", opt);
+        // }
         if (opt.impl == "navarro" || opt.impl == "all") {
             run_selected<Navarro25::AdaptiveDynamicBitVector>("Navarro25::AdaptiveDynamicBitVector", opt);
         }
