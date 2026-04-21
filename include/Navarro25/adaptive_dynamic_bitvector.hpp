@@ -61,12 +61,10 @@ struct AdaptiveDynamicBitVector {
     }
 
     bool access(std::size_t i) const {
-        require(i < total_bits, "access index out of range");
         return access_impl(root, i);
     }
 
     std::size_t rank1(std::size_t i) const {
-        require(i <= total_bits, "rank1 index out of range");
         if (total_bits == 0) {
             return 0;
         }
@@ -74,7 +72,6 @@ struct AdaptiveDynamicBitVector {
     }
 
     std::size_t rank0(std::size_t i) const {
-        require(i <= total_bits, "rank0 index out of range");
         return i - rank1(i);
     }
 
@@ -94,26 +91,22 @@ struct AdaptiveDynamicBitVector {
     }
 
     void insert(std::size_t i, bool bit) {
-        require(i <= total_bits, "insert index out of range");
         ensure_root();
         insert_impl(root, i, bit);
         finish_update();
     }
 
     void erase(std::size_t i) {
-        require(i < total_bits, "erase index out of range");
         erase_impl(root, i);
         finish_update();
     }
 
     void set(std::size_t i, bool bit) {
-        require(i < total_bits, "set index out of range");
         set_impl(root, i, bit);
         finish_update();
     }
 
     void flip(std::size_t i) {
-        require(i < total_bits, "flip index out of range");
         flip_impl(root, i);
         finish_update();
     }
@@ -168,12 +161,6 @@ struct AdaptiveDynamicBitVector {
         const double raw = (log_n * log_n) / (16.0 * log_log_n);
         const auto rounded = static_cast<std::size_t>(std::ceil(raw));
         return std::max<std::size_t>(16, 16 * std::max<std::size_t>(1, rounded));
-    }
-
-    static void require(bool cond, const char* msg) {
-        if (!cond) {
-            throw std::out_of_range(msg);
-        }
     }
 
     static std::size_t ceil_div(std::size_t x, std::size_t y) {
@@ -998,4 +985,4 @@ struct AdaptiveDynamicBitVector {
     }
 };
 
-} // namespace Navarro25
+}

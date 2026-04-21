@@ -140,8 +140,3 @@ void load_from_bits(MyQueryOnlyAdapter& bv, const std::vector<bool>& bits) {
 }
 }
 ```
-
-## Notes
-
-- This suite is intentionally simple and extensible.
-- For research-grade evaluation, add larger seeds, adversarial traces, and timing/memory instrumentation.
