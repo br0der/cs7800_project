@@ -29,7 +29,7 @@ struct TestConfig {
 struct PerfConfig {
     size_t rounds = 3;
     size_t initial_size = 1 << 20;
-    size_t operations = 100000;
+    size_t operations = 1000;
     uint64_t seed = 0x9E3779B97F4A7C15ULL;
     double query_ratio; // This is set using the CLI
     bool skip_insert_erase = false;
@@ -219,6 +219,7 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
         op_ns[op] += static_cast<long double>(chrono::duration_cast<chrono::nanoseconds>(t1 - t0).count());
     };
 
+    size_t peak_bits_overall = 0;
     for (size_t round = 0; round < cfg.rounds; ++round) {
         mt19937_64 rng(cfg.seed + static_cast<uint64_t>(round));
         BV bv;
@@ -238,6 +239,7 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
             load_from_bits(bv, bits);
         }
 
+        size_t peak_bits = bv.count_bits();
         const auto t0 = clock_t::now();
         for (size_t i = 0; i < cfg.operations; ++i) {
             const size_t n = bv.size();
@@ -346,8 +348,10 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
                 }
             }
             ++total_ops;
+            peak_bits = max(peak_bits, bv.count_bits());
         }
         const auto t1 = clock_t::now();
+        peak_bits_overall = max(peak_bits_overall, peak_bits);
 
         const auto elapsed = chrono::duration_cast<chrono::nanoseconds>(t1 - t0);
         const auto ns = elapsed.count();
@@ -356,7 +360,8 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
             ? (static_cast<double>(cfg.operations) / (static_cast<double>(ns) / 1e9) / 1e6)
             : 0.0;
         cout << "[perf] " << impl_name << " round " << (round + 1)
-             << ": " << mops << " Mops/s\n";
+             << ": " << mops << " Mops/s"
+             << ", peak_bits=" << peak_bits << '\n';
     }
 
     const double overall_mops = (t_all > chrono::nanoseconds::zero())
@@ -384,7 +389,7 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
     }
 
     cout << "[perf] " << impl_name << " total: " << overall_mops
-         << " Mops/s (sink=" << sink << ")\n";
+         << " Mops/s (sink=" << sink << ", peak_bits=" << peak_bits_overall << ")\n";
 }
 
 } // namespace dbv

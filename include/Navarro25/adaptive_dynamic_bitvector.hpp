@@ -46,6 +46,20 @@ struct AdaptiveDynamicBitVector {
         return total_bits;
     }
 
+    std::size_t count_bits() const noexcept {
+        if (!root || total_bits == 0) {
+            return 0;
+        }
+
+        const std::size_t total_width = bits_for_value(total_bits);
+        const std::size_t level_width = bits_for_value(level_for_size(total_bits) + 1);
+        std::size_t bits = total_width;
+        bits += bits_for_value(arity);
+        bits += bits_for_value(leaf_capacity);
+        bits += count_bits(*root, total_width, level_width);
+        return bits;
+    }
+
     bool access(std::size_t i) const {
         require(i < total_bits, "access index out of range");
         return access_impl(root, i);
@@ -166,6 +180,10 @@ struct AdaptiveDynamicBitVector {
         return x == 0 ? 0 : 1 + (x - 1) / y;
     }
 
+    static std::size_t bits_for_value(std::size_t max_value) {
+        return std::max<std::size_t>(1, StaticBitVector::bits_for_value(max_value));
+    }
+
     static std::size_t word_count_for(std::size_t bit_count) {
         return ceil_div(bit_count, static_cast<std::size_t>(64));
     }
@@ -256,6 +274,26 @@ struct AdaptiveDynamicBitVector {
 
     std::size_t min_weight(std::size_t level) const {
         return std::max<std::size_t>(1, max_weight(level) / 4);
+    }
+
+    std::size_t count_bits(const node& n, std::size_t total_width, std::size_t level_width) const {
+        std::size_t bits = 2 + level_width + 2 * total_width;
+
+        if (n.kind == internal_node) {
+            bits += bits_for_value(std::max<std::size_t>(1, n.bit_count));
+            for (const auto& child : n.children) {
+                if (child) {
+                    bits += count_bits(*child, total_width, level_width);
+                }
+            }
+            return bits;
+        }
+
+        if (n.kind == dynamic_leaf) {
+            return bits + n.bit_count;
+        }
+
+        return bits + n.static_bits.count_bits();
     }
 
     std::size_t level_for_size(std::size_t bit_count) const {

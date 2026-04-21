@@ -16,6 +16,10 @@ public:
         return bits_.size();
     }
 
+    size_t count_bits() const noexcept {
+        return bits_.size();
+    }
+
     bool access(size_t i) const {
         require(i < bits_.size(), "access index out of range");
         return bits_[i] != 0;

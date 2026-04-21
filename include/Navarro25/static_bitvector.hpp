@@ -35,6 +35,10 @@ struct PackedIntVector {
         words.clear();
     }
 
+    std::size_t count_bits() const noexcept {
+        return count * width;
+    }
+
     void set(std::size_t index, std::size_t value) {
         for (std::size_t bit = 0; bit < width; ++bit) {
             const std::size_t pos = index * width + bit;
@@ -112,6 +116,21 @@ struct StaticBitVector {
 
     std::size_t ones() const noexcept {
         return one_count;
+    }
+
+    std::size_t count_bits() const noexcept {
+        if (bit_count == 0) {
+            return 0;
+        }
+
+        const std::size_t scalar_width = bits_for_value(bit_count);
+        std::size_t bits = bit_count;
+        bits += 5 * scalar_width;
+        bits += superblock_rank.count_bits();
+        bits += block_rank.count_bits();
+        bits += select1_samples.count_bits();
+        bits += select0_samples.count_bits();
+        return bits;
     }
 
     bool access(std::size_t i) const {

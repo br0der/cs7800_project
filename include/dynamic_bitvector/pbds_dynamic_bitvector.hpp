@@ -42,6 +42,18 @@ public:
         return bits_.size();
     }
 
+    std::size_t count_bits() const noexcept {
+        const std::size_t n = size();
+        if (n == 0) {
+            return 0;
+        }
+
+        const std::size_t coord_width = bits_for_value(n);
+        const std::size_t bit_tree_node_bits = coord_width + 1 + coord_width + 1;
+        const std::size_t one_tree_node_bits = coord_width + bits_for_value(ones_.size()) + 1;
+        return n * bit_tree_node_bits + ones_.size() * one_tree_node_bits;
+    }
+
     bool access(std::size_t i) const {
         const auto it = locate(i, "access index out of range");
         return it->second;
@@ -139,6 +151,23 @@ private:
         if (!cond) {
             throw std::out_of_range(msg);
         }
+    }
+
+    static std::size_t ceil_log2(std::size_t x) {
+        if (x <= 1) {
+            return 0;
+        }
+        --x;
+        std::size_t bits = 0;
+        while (x != 0) {
+            ++bits;
+            x >>= 1;
+        }
+        return bits;
+    }
+
+    static std::size_t bits_for_value(std::size_t max_value) {
+        return std::max<std::size_t>(1, ceil_log2(max_value + 1));
     }
 
     bit_iterator locate(std::size_t i, const char* msg) {

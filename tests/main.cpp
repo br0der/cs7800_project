@@ -576,12 +576,12 @@ int main(int argc, char** argv) {
     try {
         const CliOptions opt = parse_args(argc, argv);
 
-        // if (opt.impl == "naive" || opt.impl == "all") {
-        //     run_selected<dbv::NaiveDynamicBitVector>("NaiveDynamicBitVector", opt);
-        // }
-        // if (opt.impl == "static" || opt.impl == "all") {
-        //     run_selected<dbv::RankSelectBitVector>("RankSelectBitVector", opt);
-        // }
+        if (opt.impl == "naive" || opt.impl == "all") {
+            run_selected<dbv::NaiveDynamicBitVector>("NaiveDynamicBitVector", opt);
+        }
+        if (opt.impl == "static" || opt.impl == "all") {
+            run_selected<dbv::RankSelectBitVector>("RankSelectBitVector", opt);
+        }
         if (opt.impl == "btree" || opt.impl == "all") {
             run_selected<BTreeDBV::DynamicBitVector>("BTreeDBV::DynamicBitVector", opt);
         }
@@ -594,9 +594,9 @@ int main(int argc, char** argv) {
         //     throw invalid_argument("PBDS implementation requires GNU PBDS headers; build with libstdc++/g++");
         // }
 #endif
-        // if (opt.impl == "navarro-static" || opt.impl == "navarro" || opt.impl == "all") {
-        //     run_selected<Navarro25::StaticBitVector>("Navarro25::StaticBitVector", opt);
-        // }
+        if (opt.impl == "navarro-static" || opt.impl == "navarro" || opt.impl == "all") {
+            run_selected<Navarro25::StaticBitVector>("Navarro25::StaticBitVector", opt);
+        }
         if (opt.impl == "navarro" || opt.impl == "all") {
             run_selected<Navarro25::AdaptiveDynamicBitVector>("Navarro25::AdaptiveDynamicBitVector", opt);
         }

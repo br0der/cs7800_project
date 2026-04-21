@@ -63,6 +63,18 @@ public:
         return n_;
     }
 
+    size_t count_bits() const noexcept {
+        if (n_ == 0) {
+            return 0;
+        }
+
+        size_t bits = n_;
+        bits += 2 * bits_for_value(n_);
+        bits += super_blocks_.size() * bits_for_value(n_);
+        bits += blocks_.size() * bits_for_value(kSuperBlockBits);
+        return bits;
+    }
+
     bool access(size_t i) const {
         require(i < n_, "access index out of range");
         return (words_[i / kWordBits] >> (i % kWordBits)) & 1;
@@ -296,6 +308,21 @@ private:
 
     static size_t popcount64(uint64_t x) noexcept {
         return static_cast<size_t>(__builtin_popcountll(x));
+    }
+
+    static size_t ceil_log2(size_t x) noexcept {
+        if (x <= 1) return 0;
+        --x;
+        size_t bits = 0;
+        while (x != 0) {
+            ++bits;
+            x >>= 1;
+        }
+        return bits;
+    }
+
+    static size_t bits_for_value(size_t max_value) noexcept {
+        return max<size_t>(1, ceil_log2(max_value + 1));
     }
 
     // Find the k-th set bit (0-indexed) in word x.

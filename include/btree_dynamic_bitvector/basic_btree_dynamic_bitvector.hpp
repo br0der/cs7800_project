@@ -61,6 +61,15 @@ public:
 
     size_t size() const noexcept { return root_->bits; }
 
+    size_t count_bits() const noexcept {
+        if (root_->bits == 0) {
+            return 0;
+        }
+
+        const size_t total_width = bits_for_value(root_->bits);
+        return count_bits(*root_, total_width);
+    }
+
     bool access(size_t i) const {
         assert(i < size());
         const Node* x = root_.get();
@@ -332,6 +341,21 @@ private:
         return bits == 0 ? 0 : 1 + (bits - 1) / W;
     }
 
+    static size_t ceil_log2(size_t x) {
+        if (x <= 1) return 0;
+        --x;
+        size_t bits = 0;
+        while (x != 0) {
+            ++bits;
+            x >>= 1;
+        }
+        return bits;
+    }
+
+    static size_t bits_for_value(size_t max_value) {
+        return max<size_t>(1, ceil_log2(max_value + 1));
+    }
+
     static bool get(const Leaf& x, size_t i) {
         return ((x.words[i / W] >> (i % W)) & uint64_t{1}) != 0;
     }
@@ -406,6 +430,21 @@ private:
     static size_t pick(const vector<size_t>& pref, size_t x) {
         auto it = upper_bound(pref.begin() + 1, pref.end(), x);
         return it == pref.end() ? pref.size() - 2 : static_cast<size_t>(it - pref.begin() - 1);
+    }
+
+    size_t count_bits(const Node& x, size_t total_width) const {
+        size_t bits = 1 + 2 * total_width;
+        if (x.kind == Kind::leaf) {
+            return bits + x.bits;
+        }
+
+        const auto& in = static_cast<const Internal&>(x);
+        bits += in.bits_pref.size() * total_width;
+        bits += in.ones_pref.size() * total_width;
+        for (const auto& child : in.child) {
+            bits += count_bits(*child, total_width);
+        }
+        return bits;
     }
 
     Summary check(const Node& x, bool root, size_t depth) const {
