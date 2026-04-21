@@ -19,7 +19,6 @@ using namespace std;
 
 namespace dbv {
 
-// Very small, ad-hoc harness by design.
 struct TestConfig {
     size_t rounds = 3;
     size_t operations_per_round = 2000;
@@ -30,9 +29,9 @@ struct TestConfig {
 struct PerfConfig {
     size_t rounds = 3;
     size_t initial_size = 1 << 20;
-    size_t operations = 10000;
+    size_t operations = 100000;
     uint64_t seed = 0x9E3779B97F4A7C15ULL;
-    double query_ratio = 0.5;
+    double query_ratio; // This is set using the CLI
     bool skip_insert_erase = false;
 };
 
@@ -211,7 +210,7 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
 
     uint64_t sink = 0;
     uint64_t total_ops = 0;
-    const auto t_all_0 = clock_t::now();
+    chrono::nanoseconds t_all = chrono::nanoseconds::zero();
     array<uint64_t, OP_COUNT> op_counts{};
     array<long double, OP_COUNT> op_ns{};
 
@@ -350,7 +349,9 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
         }
         const auto t1 = clock_t::now();
 
-        const auto ns = chrono::duration_cast<chrono::nanoseconds>(t1 - t0).count();
+        const auto elapsed = chrono::duration_cast<chrono::nanoseconds>(t1 - t0);
+        const auto ns = elapsed.count();
+        t_all += elapsed;
         const double mops = (ns > 0)
             ? (static_cast<double>(cfg.operations) / (static_cast<double>(ns) / 1e9) / 1e6)
             : 0.0;
@@ -358,10 +359,8 @@ void run_performance_suite(const string& impl_name, const PerfConfig& cfg = {}) 
              << ": " << mops << " Mops/s\n";
     }
 
-    const auto t_all_1 = clock_t::now();
-    const auto total_ns = chrono::duration_cast<chrono::nanoseconds>(t_all_1 - t_all_0).count();
-    const double overall_mops = (total_ns > 0)
-        ? (static_cast<double>(total_ops) / (static_cast<double>(total_ns) / 1e9) / 1e6)
+    const double overall_mops = (t_all > chrono::nanoseconds::zero())
+        ? (static_cast<double>(total_ops) / (static_cast<double>(t_all.count()) / 1e9) / 1e6)
         : 0.0;
 
     cout << "[perf] " << impl_name << " per-op:\n";

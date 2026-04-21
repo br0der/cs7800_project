@@ -1,17 +1,22 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
-#ifndef __has_include
-#define __has_include(x) 0
-#endif
-
+#if defined(__has_include)
 #if __has_include(<ext/pb_ds/assoc_container.hpp>) && __has_include(<ext/pb_ds/tree_policy.hpp>)
 #define DBV_HAS_PBDS 1
+#endif
+#endif
 
+#ifndef DBV_HAS_PBDS
+#define DBV_HAS_PBDS 0
+#endif
+
+#if DBV_HAS_PBDS
 #include <ext/pb_ds/assoc_container.hpp>
 #include <ext/pb_ds/tree_policy.hpp>
 
@@ -197,9 +202,4 @@ private:
 };
 
 } // namespace dbv
-
-#else
-
-#define DBV_HAS_PBDS 0
-
 #endif
