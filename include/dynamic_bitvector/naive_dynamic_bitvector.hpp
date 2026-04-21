@@ -1,7 +1,7 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
-#include <stdexcept>
 #include <vector>
 
 using namespace std;
@@ -21,13 +21,13 @@ public:
     }
 
     bool access(size_t i) const {
-        require(i < bits_.size(), "access index out of range");
+        assert(i < bits_.size());
         return bits_[i] != 0;
     }
 
     // rank1(i): number of 1 bits in [0, i)
     size_t rank1(size_t i) const {
-        require(i <= bits_.size(), "rank1 index out of range");
+        assert(i <= bits_.size());
         size_t c = 0;
         for (size_t p = 0; p < i; ++p) {
             c += bits_[p] != 0;
@@ -50,22 +50,22 @@ public:
     }
 
     void insert(size_t i, bool b) {
-        require(i <= bits_.size(), "insert index out of range");
+        assert(i <= bits_.size());
         bits_.insert(bits_.begin() + static_cast<ptrdiff_t>(i), static_cast<unsigned char>(b));
     }
 
     void erase(size_t i) {
-        require(i < bits_.size(), "erase index out of range");
+        assert(i < bits_.size());
         bits_.erase(bits_.begin() + static_cast<ptrdiff_t>(i));
     }
 
     void set(size_t i, bool b) {
-        require(i < bits_.size(), "set index out of range");
+        assert(i < bits_.size());
         bits_[i] = static_cast<unsigned char>(b);
     }
 
     void flip(size_t i) {
-        require(i < bits_.size(), "flip index out of range");
+        assert(i < bits_.size());
         bits_[i] = static_cast<unsigned char>(bits_[i] == 0);
     }
 
@@ -74,12 +74,6 @@ public:
     }
 
 private:
-    static void require(bool cond, const char* msg) {
-        if (!cond) {
-            throw out_of_range(msg);
-        }
-    }
-
     vector<unsigned char> bits_;
 };
 

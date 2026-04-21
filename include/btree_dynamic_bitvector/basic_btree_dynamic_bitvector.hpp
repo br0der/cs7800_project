@@ -16,11 +16,8 @@ using namespace std;
 
 template <size_t Fanout = 64, size_t LeafCapacityBits = (size_t{1} << 14)>
 class BasicDynamicBitVector {
-    static_assert(Fanout >= 4);
-    static_assert(LeafCapacityBits >= 64);
-
     static constexpr size_t W = 64;
-    static constexpr size_t LEAF_WORDS = (LeafCapacityBits + W) / W; // one extra word for temporary overflow
+    static constexpr size_t LEAF_WORDS = (LeafCapacityBits + W) / W;
     static constexpr size_t MIN_LEAF_BITS = (LeafCapacityBits + 1) / 2;
     static constexpr size_t MIN_CHILDREN = (Fanout + 1) / 2;
 
@@ -72,29 +69,29 @@ public:
 
     bool access(size_t i) const {
         assert(i < size());
-        const Node* x = root_.get();
+        Node* x = root_.get();
         while (x->kind == Kind::internal) {
-            const auto& in = *static_cast<const Internal*>(x);
-            const size_t c = pick(in.bits_pref, i);
+            auto& in = *static_cast<Internal*>(x);
+            size_t c = pick(in.bits_pref, i);
             i -= in.bits_pref[c];
             x = in.child[c].get();
         }
-        return get(*static_cast<const Leaf*>(x), i);
+        return get(*static_cast<Leaf*>(x), i);
     }
 
     size_t rank1(size_t i) const {
         assert(i <= size());
-        const Node* x = root_.get();
+        Node* x = root_.get();
         size_t ans = 0;
         while (x->kind == Kind::internal) {
-            const auto& in = *static_cast<const Internal*>(x);
+            auto& in = *static_cast<Internal*>(x);
             if (i == in.bits) return ans + in.ones;
-            const size_t c = pick(in.bits_pref, i);
+            size_t c = pick(in.bits_pref, i);
             ans += in.ones_pref[c];
             i -= in.bits_pref[c];
             x = in.child[c].get();
         }
-        return ans + leaf_rank(*static_cast<const Leaf*>(x), i);
+        return ans + leaf_rank(*static_cast<Leaf*>(x), i);
     }
 
     size_t rank0(size_t i) const {
@@ -104,16 +101,16 @@ public:
 
     size_t select1(size_t k) const noexcept {
         if (k >= root_->ones) return size();
-        const Node* x = root_.get();
+        Node* x = root_.get();
         size_t ans = 0;
         while (x->kind == Kind::internal) {
-            const auto& in = *static_cast<const Internal*>(x);
-            const size_t c = pick(in.ones_pref, k);
+            auto& in = *static_cast<Internal*>(x);
+            size_t c = pick(in.ones_pref, k);
             ans += in.bits_pref[c];
             k -= in.ones_pref[c];
             x = in.child[c].get();
         }
-        return ans + leaf_select(*static_cast<const Leaf*>(x), k);
+        return ans + leaf_select(*static_cast<Leaf*>(x), k);
     }
 
     void set(size_t i, bool bit) {
@@ -123,13 +120,13 @@ public:
         while (x->kind == Kind::internal) {
             auto* in = static_cast<Internal*>(x);
             path.push_back(in);
-            const size_t c = pick(in->bits_pref, i);
+            size_t c = pick(in->bits_pref, i);
             i -= in->bits_pref[c];
             x = in->child[c].get();
         }
 
         auto& leaf = *static_cast<Leaf*>(x);
-        const bool old = get(leaf, i);
+        bool old = get(leaf, i);
         if (old == bit) return;
         put(leaf, i, bit);
         leaf.ones += bit ? 1 : -1;
@@ -143,13 +140,13 @@ public:
         while (x->kind == Kind::internal) {
             auto* in = static_cast<Internal*>(x);
             path.push_back(in);
-            const size_t c = pick(in->bits_pref, i);
+            size_t c = pick(in->bits_pref, i);
             i -= in->bits_pref[c];
             x = in->child[c].get();
         }
 
         auto& leaf = *static_cast<Leaf*>(x);
-        const bool old = get(leaf, i);
+        bool old = get(leaf, i);
         put(leaf, i, !old);
         leaf.ones += old ? -1 : 1;
         for (auto it = path.rbegin(); it != path.rend(); ++it) rebuild(**it);
@@ -161,7 +158,7 @@ public:
         Node* x = root_.get();
         while (x->kind == Kind::internal) {
             auto* in = static_cast<Internal*>(x);
-            const size_t c = pick(in->bits_pref, i);
+            size_t c = pick(in->bits_pref, i);
             path.push_back({in, c});
             i -= in->bits_pref[c];
             x = in->child[c].get();
@@ -184,7 +181,7 @@ public:
                 }
                 trim(out);
             };
-            const size_t left = snap.bits / 2;
+            size_t left = snap.bits / 2;
             auto right = make_unique<Leaf>();
             refill(leaf, 0, left);
             refill(*right, left, snap.bits - left);
@@ -193,13 +190,13 @@ public:
 
         for (auto it = path.rbegin(); it != path.rend(); ++it) {
             auto* in = it->first;
-            const size_t c = it->second;
+            size_t c = it->second;
             if (extra) in->child.insert(in->child.begin() + static_cast<ptrdiff_t>(c + 1), move(extra));
             rebuild(*in);
             if (in->child.size() <= Fanout) continue;
 
             auto right = make_unique<Internal>();
-            const size_t mid = in->child.size() / 2;
+            size_t mid = in->child.size() / 2;
             right->child.insert(
                 right->child.end(),
                 make_move_iterator(in->child.begin() + static_cast<ptrdiff_t>(mid)),
@@ -226,7 +223,7 @@ public:
         Node* x = root_.get();
         while (x->kind == Kind::internal) {
             auto* in = static_cast<Internal*>(x);
-            const size_t c = pick(in->bits_pref, i);
+            size_t c = pick(in->bits_pref, i);
             path.push_back({in, c});
             i -= in->bits_pref[c];
             x = in->child[c].get();
@@ -247,12 +244,13 @@ public:
             if (a.kind == Kind::leaf) {
                 auto& x = static_cast<Leaf&>(a);
                 auto& y = static_cast<Leaf&>(b);
-                const size_t base = x.bits;
+                size_t base = x.bits;
                 for (size_t j = 0; j < y.bits; ++j) put(x, base + j, get(y, j));
                 x.bits += y.bits;
                 x.ones += y.ones;
                 trim(x);
-            } else {
+            } 
+            else {
                 auto& x = static_cast<Internal&>(a);
                 auto& y = static_cast<Internal&>(b);
                 for (auto& ch : y.child) x.child.push_back(move(ch));
@@ -263,7 +261,7 @@ public:
 
         for (auto it = path.rbegin(); it != path.rend(); ++it) {
             auto* in = it->first;
-            const size_t c = it->second;
+            size_t c = it->second;
 
             if (c < in->child.size() && small(*in->child[c], false)) {
                 if (c > 0 && can_lend(*in->child[c - 1])) {
@@ -324,7 +322,7 @@ public:
     void clear() { root_ = make_unique<Leaf>(); }
 
     bool check_invariants() const {
-        const Summary s = check(*root_, true, 0);
+        Summary s = check(*root_, true, 0);
         return s.ok && s.bits == root_->bits && s.ones == root_->ones;
     }
 
@@ -362,13 +360,13 @@ private:
 
     static void put(Leaf& x, size_t i, bool bit) {
         auto& w = x.words[i / W];
-        const auto m = uint64_t{1} << (i % W);
+        auto m = uint64_t{1} << (i % W);
         if (bit) w |= m;
         else w &= ~m;
     }
 
     static void trim(Leaf& x) {
-        const size_t wc = word_count(x.bits);
+        size_t wc = word_count(x.bits);
         if (wc == 0) {
             x.words.fill(0);
             return;
@@ -385,11 +383,11 @@ private:
     }
 
     static size_t leaf_select(const Leaf& x, size_t k) {
-        const size_t wc = word_count(x.bits);
+        size_t wc = word_count(x.bits);
         for (size_t w = 0; w < wc; ++w) {
             uint64_t cur = x.words[w];
             if (w + 1 == wc && (x.bits % W)) cur &= low_mask(x.bits % W);
-            const size_t pc = popcount(cur);
+            size_t pc = popcount(cur);
             if (k < pc) {
                 while (k--) cur &= cur - 1;
                 return w * W + countr_zero(cur);
@@ -400,7 +398,7 @@ private:
     }
 
     static void leaf_insert(Leaf& x, size_t pos, bool bit) {
-        const size_t old = x.bits++;
+        size_t old = x.bits++;
         for (size_t j = old; j > pos; --j) put(x, j, get(x, j - 1));
         put(x, pos, bit);
         x.ones += bit;
@@ -408,7 +406,7 @@ private:
     }
 
     static bool leaf_erase(Leaf& x, size_t pos) {
-        const bool old = get(x, pos);
+        bool old = get(x, pos);
         for (size_t j = pos; j + 1 < x.bits; ++j) put(x, j, get(x, j + 1));
         --x.bits;
         if (old) --x.ones;
@@ -449,14 +447,14 @@ private:
 
     Summary check(const Node& x, bool root, size_t depth) const {
         if (x.kind == Kind::leaf) {
-            const auto& leaf = static_cast<const Leaf&>(x);
+            auto& leaf = static_cast<const Leaf&>(x);
             bool ok = x.ones <= x.bits && x.bits <= LeafCapacityBits;
             if (!root) ok = ok && x.bits >= MIN_LEAF_BITS;
             ok = ok && leaf_rank(leaf, x.bits) == x.ones;
             return {ok, x.bits, x.ones, depth};
         }
 
-        const auto& in = static_cast<const Internal&>(x);
+        auto& in = static_cast<const Internal&>(x);
         bool ok = !in.child.empty() && in.child.size() <= Fanout;
         if (root) ok = ok && in.child.size() >= 2;
         else ok = ok && in.child.size() >= MIN_CHILDREN;

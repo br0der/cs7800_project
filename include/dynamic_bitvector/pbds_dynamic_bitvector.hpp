@@ -1,11 +1,12 @@
 #pragma once
 
+#include <cassert>
 #include <cstddef>
 #include <functional>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
+// A bunch of safeties to allow brady to compile, because he does not have pbds on his compiler for some reason
 #if defined(__has_include)
 #if __has_include(<ext/pb_ds/assoc_container.hpp>) && __has_include(<ext/pb_ds/tree_policy.hpp>)
 #define DBV_HAS_PBDS 1
@@ -55,12 +56,12 @@ public:
     }
 
     bool access(std::size_t i) const {
-        const auto it = locate(i, "access index out of range");
+        const auto it = locate(i);
         return it->second;
     }
 
     std::size_t rank1(std::size_t i) const {
-        require(i <= size(), "rank1 index out of range");
+        assert(i <= size());
         if (i == size()) {
             return ones_.size();
         }
@@ -73,7 +74,7 @@ public:
     }
 
     void insert(std::size_t i, bool b) {
-        require(i <= size(), "insert index out of range");
+        assert(i <= size());
         shift_suffix_right(i);
         bits_.insert({i, b});
         if (b) {
@@ -82,7 +83,7 @@ public:
     }
 
     void erase(std::size_t i) {
-        auto it = locate(i, "erase index out of range");
+        auto it = locate(i);
         const bool was_one = it->second;
         bits_.erase(it);
         if (was_one) {
@@ -92,7 +93,7 @@ public:
     }
 
     void set(std::size_t i, bool b) {
-        auto it = locate(i, "set index out of range");
+        auto it = locate(i);
         const bool old = it->second;
         if (old == b) {
             return;
@@ -106,7 +107,7 @@ public:
     }
 
     void flip(std::size_t i) {
-        auto it = locate(i, "flip index out of range");
+        auto it = locate(i);
         it->second = !it->second;
         if (it->second) {
             ones_.insert(i);
@@ -173,14 +174,14 @@ private:
     bit_iterator locate(std::size_t i, const char* msg) {
         require(i < size(), msg);
         auto it = bits_.find_by_order(i);
-        require(it != bits_.end() && it->first == i, "PBDS position invariant failure");
+        assert(it != bits_.end() && it->first == i);
         return it;
     }
 
-    const_bit_iterator locate(std::size_t i, const char* msg) const {
-        require(i < size(), msg);
+    const_bit_iterator locate(std::size_t i) const {
+        assert(i < size());
         auto it = bits_.find_by_order(i);
-        require(it != bits_.end() && it->first == i, "PBDS position invariant failure");
+        assert(it != bits_.end() && it->first == i);
         return it;
     }
 

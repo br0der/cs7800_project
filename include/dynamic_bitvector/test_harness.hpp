@@ -40,8 +40,7 @@ void load_from_bits(BV& bv, const vector<bool>& bits) {
     if constexpr (is_constructible_v<BV, const vector<bool>&>) {
         bv = BV(bits);
     } else {
-        static_assert(is_dynamic_bitvector_v<BV>,
-                      "For query-only bitvectors, provide dbv::load_from_bits(BV&, const vector<bool>&)");
+        static_assert(is_dynamic_bitvector_v<BV>);
 
         bv.clear();
         for (bool b : bits) {
